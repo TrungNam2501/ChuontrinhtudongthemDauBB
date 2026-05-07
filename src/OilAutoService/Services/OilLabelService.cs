@@ -20,12 +20,17 @@ public class OilLabelService : IOilLabelService
         using var connection = new SqlConnection(_server33ConnectionString);
         await connection.OpenAsync(ct);
 
+        // Bảng tracking được lazy-create trong MarkOrderProcessedAsync;
+        // ở lần chạy đầu tiên bảng có thể chưa tồn tại -> coi như chưa xử lý.
         using var cmd = new SqlCommand(@"
-            SELECT COUNT(1)
-            FROM [BB].[dbo].[bb_Oil_AutoProcessed]
-            WHERE [MachineName] = @machineName
-              AND [GroupLotId] = @groupLotId
-              AND [PlanId] = @planId", connection);
+            IF OBJECT_ID(N'[BB].[dbo].[bb_Oil_AutoProcessed]', N'U') IS NULL
+                SELECT 0
+            ELSE
+                SELECT COUNT(1)
+                FROM [BB].[dbo].[bb_Oil_AutoProcessed]
+                WHERE [MachineName] = @machineName
+                  AND [GroupLotId] = @groupLotId
+                  AND [PlanId] = @planId", connection);
 
         cmd.Parameters.AddWithValue("@machineName", machineName);
         cmd.Parameters.AddWithValue("@groupLotId", groupLotId);
