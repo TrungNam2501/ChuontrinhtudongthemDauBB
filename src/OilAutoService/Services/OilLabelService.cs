@@ -218,7 +218,11 @@ public class OilLabelService : IOilLabelService
     }
 
     /// <summary>
-    /// Tìm tem dầu khả dụng (active=1, còn kg) cho mater_code, FIFO theo ID.
+    /// Tìm tem dầu khả dụng cho mater_code, FIFO theo ID.
+    /// active là nvarchar với 4 giá trị:
+    ///   - 'trang thai', 'mokhoa' = đang dùng được (cần còn kg)
+    ///   - 'khoa'                 = đã đóng, không dùng nữa
+    ///   - 'boquakhoa'            = user override, vẫn dùng được dù hết kg
     /// </summary>
     private static async Task<BbOilNhaptay?> FindAvailableOilLabelAsync(
         SqlConnection bbConnection,
@@ -234,8 +238,12 @@ public class OilLabelService : IOilLabelService
             SELECT TOP 1 [ID], [HMI_Barcode], [Sokgtem], [sokgsudung]
             FROM [BB].[dbo].[bb_Oil_Nhaptay]
             WHERE LTRIM(RTRIM([HMI_Barcode])) = LTRIM(RTRIM(@materCode))
-              AND [active] = 1
-              AND ([Sokgtem] - [sokgsudung]) > 0
+              AND LTRIM(RTRIM([active])) <> 'khoa'
+              AND (
+                    LTRIM(RTRIM([active])) = 'boquakhoa'
+                 OR (LTRIM(RTRIM([active])) IN ('trang thai', 'mokhoa')
+                      AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0)
+              )
             ORDER BY [ID] ASC", bbConnection);
 
         cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
@@ -256,7 +264,10 @@ public class OilLabelService : IOilLabelService
     }
 
     /// <summary>
-    /// Cộng real_weight vào sokgsudung của tem (theo Id).
+    /// Cộng real_weight vào sokgsudung của tem.
+    /// Nếu sau khi cộng tem hết kg (sokgsudung >= Sokgtem) và active KHÔNG phải
+    /// 'boquakhoa' thì tự động set active = 'khoa'. Nếu là 'boquakhoa' (user
+    /// override) thì giữ nguyên - không tự đổi về 'khoa'.
     /// </summary>
     private static async Task UpdateSokgsudungAsync(
         SqlConnection bbConnection,
@@ -266,7 +277,12 @@ public class OilLabelService : IOilLabelService
     {
         using var cmd = new SqlCommand(@"
             UPDATE [BB].[dbo].[bb_Oil_Nhaptay]
-            SET [sokgsudung] = ISNULL([sokgsudung], 0) + @realWeight
+            SET [sokgsudung] = ISNULL([sokgsudung], 0) + @realWeight,
+                [active] = CASE
+                    WHEN LTRIM(RTRIM([active])) = 'boquakhoa' THEN [active]
+                    WHEN (ISNULL([sokgsudung], 0) + @realWeight) >= ISNULL([Sokgtem], 0) THEN 'khoa'
+                    ELSE [active]
+                END
             WHERE [ID] = @id", bbConnection);
 
         cmd.Parameters.AddWithValue("@realWeight", realWeight);
