@@ -237,7 +237,7 @@ public class OilLabelService : IOilLabelService
         using var cmd = new SqlCommand(@"
             SELECT TOP 1 [ID], [HMI_Barcode], [Sokgtem], [sokgsudung]
             FROM [BB].[dbo].[bb_Oil_Nhaptay]
-            WHERE LTRIM(RTRIM([HMI_Barcode])) = LTRIM(RTRIM(@materCode))
+            WHERE LTRIM(RTRIM([Barcode_left_7bit])) = LTRIM(RTRIM(@materCode))
               AND (
                     LTRIM(RTRIM([active])) = 'boquakhoa'
                  OR (LTRIM(RTRIM([active])) = 'mokhoa'
