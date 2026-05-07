@@ -22,5 +22,10 @@ public interface IOilLabelService
     /// <summary>
     /// Đánh dấu đơn hàng đã xử lý xong (lưu vào Server33/BB)
     /// </summary>
-    Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, int insertedRows, CancellationToken ct);
+    Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, DateTime? endDatetime, int insertedRows, CancellationToken ct);
+
+    /// <summary>
+    /// Lấy MAX(EndDatetime) đã xử lý cho 1 máy (watermark). Trả về null nếu chưa có record.
+    /// </summary>
+    Task<DateTime?> GetLastProcessedEndDatetimeAsync(string machineName, CancellationToken ct);
 }

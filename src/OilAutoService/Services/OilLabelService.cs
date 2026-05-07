@@ -54,6 +54,7 @@ public class OilLabelService : IOilLabelService
                     [PlanId] [varchar](30) NULL,
                     [MesPlanId] [varchar](30) NULL,
                     [RecipeCode] [varchar](30) NULL,
+                    [EndDatetime] [datetime] NULL,
                     [InsertedRows] [int] NOT NULL DEFAULT(0),
                     [ProcessedAt] [datetime] NOT NULL DEFAULT(GETDATE())
                 );
@@ -294,7 +295,7 @@ public class OilLabelService : IOilLabelService
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, int insertedRows, CancellationToken ct)
+    public async Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, DateTime? endDatetime, int insertedRows, CancellationToken ct)
     {
         using var connection = new SqlConnection(_server33ConnectionString);
         await connection.OpenAsync(ct);
@@ -302,9 +303,8 @@ public class OilLabelService : IOilLabelService
         // Đảm bảo bảng tồn tại
         await EnsureTrackingTableExistsAsync(connection, ct);
 
-        // Insert record. Cột [MesPlanId] có thể chưa tồn tại trên DB cũ; nếu thiếu
-        // thì user phải chạy ALTER TABLE bb_Oil_AutoProcessed ADD [MesPlanId] varchar(30) NULL
-        // (xem README/PR description).
+        // Insert record. Các cột [MesPlanId]/[EndDatetime] có thể chưa tồn tại trên DB cũ;
+        // nếu thiếu thì user phải chạy ALTER TABLE để add các cột (xem PR description).
         using var cmdInsert = new SqlCommand(@"
             IF NOT EXISTS (
                 SELECT 1 FROM [dbo].[bb_Oil_AutoProcessed]
@@ -312,9 +312,9 @@ public class OilLabelService : IOilLabelService
             )
             BEGIN
                 INSERT INTO [dbo].[bb_Oil_AutoProcessed]
-                    ([MachineName], [GroupLotId], [PlanId], [MesPlanId], [RecipeCode], [InsertedRows])
+                    ([MachineName], [GroupLotId], [PlanId], [MesPlanId], [RecipeCode], [EndDatetime], [InsertedRows])
                 VALUES
-                    (@machineName, @groupLotId, @planId, @mesPlanId, @recipeCode, @insertedRows)
+                    (@machineName, @groupLotId, @planId, @mesPlanId, @recipeCode, @endDatetime, @insertedRows)
             END", connection);
 
         cmdInsert.Parameters.AddWithValue("@machineName", machineName);
@@ -322,8 +322,33 @@ public class OilLabelService : IOilLabelService
         cmdInsert.Parameters.AddWithValue("@planId", (object?)planId ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@mesPlanId", (object?)mesPlanId ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@recipeCode", (object?)recipeCode ?? DBNull.Value);
+        cmdInsert.Parameters.AddWithValue("@endDatetime", (object?)endDatetime ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@insertedRows", insertedRows);
 
         await cmdInsert.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<DateTime?> GetLastProcessedEndDatetimeAsync(string machineName, CancellationToken ct)
+    {
+        using var connection = new SqlConnection(_server33ConnectionString);
+        await connection.OpenAsync(ct);
+
+        // Đảm bảo bảng tồn tại (lần đầu chạy trên DB sạch)
+        await EnsureTrackingTableExistsAsync(connection, ct);
+
+        using var cmd = new SqlCommand(@"
+            SELECT MAX([EndDatetime])
+            FROM [dbo].[bb_Oil_AutoProcessed]
+            WHERE [MachineName] = @machineName", connection);
+
+        cmd.Parameters.AddWithValue("@machineName", machineName);
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        if (result is null || result is DBNull)
+        {
+            return null;
+        }
+
+        return (DateTime)result;
     }
 }
