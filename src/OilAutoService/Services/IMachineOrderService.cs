@@ -5,9 +5,10 @@ namespace OilAutoService.Services;
 public interface IMachineOrderService
 {
     /// <summary>
-    /// Lấy danh sách đơn hàng hoàn thành trong ngày từ máy
+    /// Lấy danh sách đơn hàng hoàn thành chưa xử lý, lọc theo watermark End_datetime.
+    /// Nếu lastEnd = null → fallback về lookbackDays ngày gần nhất.
     /// </summary>
-    Task<List<PptGroupLot>> GetCompletedOrdersAsync(string connectionString, CancellationToken ct);
+    Task<List<PptGroupLot>> GetCompletedOrdersAsync(string connectionString, DateTime? lastEnd, int lookbackDays, CancellationToken ct);
 
     /// <summary>
     /// Kiểm tra đơn hàng có sử dụng dầu không (pmt_weigh có child_code LIKE '68%')

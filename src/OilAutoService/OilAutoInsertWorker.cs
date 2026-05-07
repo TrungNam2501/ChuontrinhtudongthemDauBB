@@ -68,9 +68,15 @@ public class OilAutoInsertWorker : BackgroundService
             var orderService = scope.ServiceProvider.GetRequiredService<IMachineOrderService>();
             var labelService = scope.ServiceProvider.GetRequiredService<IOilLabelService>();
 
-            // 1. Lấy đơn hàng hoàn thành trong ngày
-            var completedOrders = await orderService.GetCompletedOrdersAsync(machine.ConnectionString, ct);
-            _logger.LogInformation("[{Machine}] Tìm thấy {Count} đơn hàng hoàn thành", machine.Name, completedOrders.Count);
+            // 0. Lấy watermark End_datetime đã xử lý cho máy này từ tracking table
+            var lastEnd = await labelService.GetLastProcessedEndDatetimeAsync(machine.Name, ct);
+
+            // 1. Lấy đơn hàng hoàn thành mới hơn watermark (fallback 7 ngày nếu null)
+            var completedOrders = await orderService.GetCompletedOrdersAsync(
+                machine.ConnectionString, lastEnd, lookbackDays: 7, ct);
+            _logger.LogInformation(
+                "[{Machine}] Watermark End_datetime={LastEnd}, tìm thấy {Count} đơn hoàn thành",
+                machine.Name, lastEnd?.ToString("yyyy-MM-dd HH:mm:ss") ?? "(null - fallback 7 ngày)", completedOrders.Count);
 
             int processedCount = 0;
             int skippedCount = 0;
@@ -98,7 +104,7 @@ public class OilAutoInsertWorker : BackgroundService
                 if (oilMaterials.Count == 0)
                 {
                     // Không dùng dầu → đánh dấu đã xử lý (0 rows) để không check lại
-                    await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, 0, ct);
+                    await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, order.EndDatetime, 0, ct);
                     noOilCount++;
                     continue;
                 }
@@ -122,7 +128,7 @@ public class OilAutoInsertWorker : BackgroundService
                     machine.ConnectionString, order, oilMaterials, weighData, ct);
 
                 // 6. Đánh dấu đã xử lý
-                await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, insertedRows, ct);
+                await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, order.EndDatetime, insertedRows, ct);
                 processedCount++;
 
                 _logger.LogInformation("[{Machine}] Đơn {PlanId} (MesPlanId={MesPlanId}): insert {Rows} tem dầu thành công",

@@ -12,38 +12,37 @@ public class MachineOrderService : IMachineOrderService
         _logger = logger;
     }
 
-    public async Task<List<PptGroupLot>> GetCompletedOrdersAsync(string connectionString, CancellationToken ct)
+    public async Task<List<PptGroupLot>> GetCompletedOrdersAsync(
+        string connectionString,
+        DateTime? lastEnd,
+        int lookbackDays,
+        CancellationToken ct)
     {
         var orders = new List<PptGroupLot>();
 
         using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
-        // Lấy đơn hàng trong ngày (từ 6:30 sáng hôm nay đến 6:30 sáng hôm sau)
-        // Nếu hiện tại < 6:30 sáng → tính là ngày hôm trước
+        // Watermark theo [End_datetime]:
+        //   - lastEnd != null  -> chỉ fetch đơn có [End_datetime] >= lastEnd
+        //   - lastEnd == null  -> fallback về lookbackDays ngày gần nhất
+        // Vẫn dùng >= (không >) để không bỏ lọt đơn có cùng End_datetime
+        // với đơn cuối cùng đã xử lý; chống trùng do IsOrderProcessedAsync phụ trách.
         using var cmd = new SqlCommand(@"
-            DECLARE @Now DATETIME = GETDATE()
-            DECLARE @Today DATE = CAST(@Now AS DATE)
-
-            -- Nếu trước 6:30 sáng, tính là ngày hôm trước
-            DECLARE @StartDate DATETIME = 
-                CASE 
-                    WHEN CAST(@Now AS TIME) < '06:30:00' 
-                    THEN DATEADD(MINUTE, 390, CAST(DATEADD(DAY, -1, @Today) AS DATETIME))
-                    ELSE DATEADD(MINUTE, 390, CAST(@Today AS DATETIME))
-                END
-
-            DECLARE @EndDate DATETIME = DATEADD(DAY, 1, @StartDate)
+            DECLARE @Threshold DATETIME =
+                ISNULL(@lastEnd, DATEADD(DAY, -@lookbackDays, GETDATE()));
 
             SELECT [Id], [Shift], [Shift_Class], [RecipeCode], [RecipeName],
                    [SetNumber], [Start_datetime], [End_datetime],
                    [FinishTag], [FinishNum], [Plan_ID], [UserPlanID], [MesPlanID]
             FROM [dbo].[Ppt_GroupLot]
-            WHERE [Start_datetime] >= @StartDate
-              AND [Start_datetime] < @EndDate
+            WHERE [End_datetime] >= @Threshold
               AND [FinishTag] != 0
               AND [FinishNum] != 0
-            ORDER BY [Id] DESC", connection);
+            ORDER BY [End_datetime] ASC, [Id] ASC", connection);
+
+        cmd.Parameters.AddWithValue("@lastEnd", (object?)lastEnd ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@lookbackDays", lookbackDays);
 
         using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
