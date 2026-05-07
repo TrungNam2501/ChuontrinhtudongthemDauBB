@@ -96,7 +96,7 @@ public class MachineOrderService : IMachineOrderService
                 FatherCode = reader.GetString(1).Trim(),
                 EquipCode = reader.GetString(2).Trim(),
                 EdtCode = reader.GetString(3).Trim(),
-                WeighType = reader.GetByte(4),
+                WeighType = reader.IsDBNull(4) ? null : ReadStringOrByte(reader, 4),
                 ActCode = reader.IsDBNull(5) ? null : reader.GetString(5).Trim(),
                 ChildCode = reader.IsDBNull(6) ? null : reader.GetString(6).Trim(),
                 ChildName = reader.IsDBNull(7) ? null : reader.GetString(7).Trim(),
@@ -139,21 +139,37 @@ public class MachineOrderService : IMachineOrderService
                 MaterCode = reader.IsDBNull(2) ? null : reader.GetString(2).Trim(),
                 EquipCode = reader.IsDBNull(3) ? null : reader.GetString(3).Trim(),
                 EdtCode = reader.IsDBNull(4) ? null : reader.GetString(4).Trim(),
-                ShiftClass = reader.IsDBNull(5) ? null : reader.GetByte(5),
-                Shift = reader.IsDBNull(6) ? null : reader.GetByte(6),
+                ShiftClass = reader.IsDBNull(5) ? null : ReadStringOrByte(reader, 5),
+                Shift = reader.IsDBNull(6) ? null : ReadStringOrByte(reader, 6),
                 SetWeight = reader.IsDBNull(7) ? null : reader.GetDecimal(7),
                 RealWeight = reader.IsDBNull(8) ? null : reader.GetDecimal(8),
                 ErrorOut = reader.IsDBNull(9) ? null : reader.GetDecimal(9),
-                WarningSgn = reader.IsDBNull(10) ? null : reader.GetString(10).Trim(),
+                WarningSgn = reader.IsDBNull(10) ? null : ReadStringOrByte(reader, 10),
                 WeighTime = reader.IsDBNull(11) ? null : reader.GetDateTime(11),
                 ErrorAllow = reader.IsDBNull(12) ? null : reader.GetDecimal(12),
                 UnitName = reader.IsDBNull(13) ? null : reader.GetString(13).Trim(),
-                WeighType = reader.IsDBNull(14) ? null : reader.GetByte(14),
+                WeighType = reader.IsDBNull(14) ? null : ReadStringOrByte(reader, 14),
                 Flg = reader.IsDBNull(15) ? null : reader.GetString(15).Trim(),
                 UserPlanId = reader.IsDBNull(16) ? null : reader.GetString(16).Trim()
             });
         }
 
         return weighData;
+    }
+
+    /// <summary>
+    /// Đọc cột có thể là CHAR/VARCHAR/TINYINT/BIT thành string (trim whitespace).
+    /// Một số DB lưu shift_class, shift, weigh_type, warning_sgn dưới dạng char(...)
+    /// (vd "1 ", "油料") thay vì tinyint, nên dùng GetValue để cover cả 2 case.
+    /// </summary>
+    private static string? ReadStringOrByte(System.Data.Common.DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return null;
+        }
+
+        var value = reader.GetValue(ordinal);
+        return value?.ToString()?.Trim();
     }
 }

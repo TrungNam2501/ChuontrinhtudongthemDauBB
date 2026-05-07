@@ -9,7 +9,7 @@ public class PmtWeigh
     public string FatherCode { get; set; } = string.Empty;
     public string EquipCode { get; set; } = string.Empty;
     public string EdtCode { get; set; } = string.Empty;
-    public byte WeighType { get; set; }
+    public string? WeighType { get; set; }
     public string? ActCode { get; set; }
     public string? ChildCode { get; set; }
     public string? ChildName { get; set; }
