@@ -22,5 +22,5 @@ public interface IOilLabelService
     /// <summary>
     /// Đánh dấu đơn hàng đã xử lý xong (lưu vào Server33/BB)
     /// </summary>
-    Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? recipeCode, int insertedRows, CancellationToken ct);
+    Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, int insertedRows, CancellationToken ct);
 }

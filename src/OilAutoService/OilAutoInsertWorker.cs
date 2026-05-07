@@ -80,8 +80,8 @@ public class OilAutoInsertWorker : BackgroundService
             {
                 if (string.IsNullOrWhiteSpace(order.PlanId) || string.IsNullOrWhiteSpace(order.RecipeCode))
                 {
-                    _logger.LogWarning("[{Machine}] Đơn hàng Id={Id} thiếu PlanId hoặc RecipeCode, bỏ qua",
-                        machine.Name, order.Id);
+                    _logger.LogWarning("[{Machine}] Đơn hàng Id={Id} (MesPlanId={MesPlanId}) thiếu PlanId hoặc RecipeCode, bỏ qua",
+                        machine.Name, order.Id, order.MesPlanId);
                     continue;
                 }
 
@@ -98,13 +98,13 @@ public class OilAutoInsertWorker : BackgroundService
                 if (oilMaterials.Count == 0)
                 {
                     // Không dùng dầu → đánh dấu đã xử lý (0 rows) để không check lại
-                    await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.RecipeCode, 0, ct);
+                    await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, 0, ct);
                     noOilCount++;
                     continue;
                 }
 
-                _logger.LogInformation("[{Machine}] Đơn {PlanId} có {Count} loại dầu: {Oils}",
-                    machine.Name, order.PlanId, oilMaterials.Count,
+                _logger.LogInformation("[{Machine}] Đơn {PlanId} (MesPlanId={MesPlanId}) có {Count} loại dầu: {Oils}",
+                    machine.Name, order.PlanId, order.MesPlanId, oilMaterials.Count,
                     string.Join(", ", oilMaterials.Select(m => m.ChildCode)));
 
                 // 4. Lấy dữ liệu cân thực tế
@@ -112,8 +112,8 @@ public class OilAutoInsertWorker : BackgroundService
 
                 if (weighData.Count == 0)
                 {
-                    _logger.LogWarning("[{Machine}] Đơn {PlanId} có dầu nhưng chưa có dữ liệu cân, bỏ qua",
-                        machine.Name, order.PlanId);
+                    _logger.LogWarning("[{Machine}] Đơn {PlanId} (MesPlanId={MesPlanId}) có dầu nhưng chưa có dữ liệu cân, bỏ qua",
+                        machine.Name, order.PlanId, order.MesPlanId);
                     continue;
                 }
 
@@ -122,11 +122,11 @@ public class OilAutoInsertWorker : BackgroundService
                     machine.ConnectionString, order, oilMaterials, weighData, ct);
 
                 // 6. Đánh dấu đã xử lý
-                await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.RecipeCode, insertedRows, ct);
+                await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, insertedRows, ct);
                 processedCount++;
 
-                _logger.LogInformation("[{Machine}] Đơn {PlanId}: insert {Rows} tem dầu thành công",
-                    machine.Name, order.PlanId, insertedRows);
+                _logger.LogInformation("[{Machine}] Đơn {PlanId} (MesPlanId={MesPlanId}): insert {Rows} tem dầu thành công",
+                    machine.Name, order.PlanId, order.MesPlanId, insertedRows);
             }
 
             _logger.LogInformation("[{Machine}] Kết quả: Xử lý={Processed}, Bỏ qua(đã xử lý)={Skipped}, Không dầu={NoOil}",
