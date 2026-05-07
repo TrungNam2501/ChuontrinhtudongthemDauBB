@@ -20,17 +20,15 @@ public class OilLabelService : IOilLabelService
         using var connection = new SqlConnection(_server33ConnectionString);
         await connection.OpenAsync(ct);
 
-        // Bảng tracking được lazy-create trong MarkOrderProcessedAsync;
-        // ở lần chạy đầu tiên bảng có thể chưa tồn tại -> coi như chưa xử lý.
+        // Đảm bảo bảng tracking tồn tại (auto-create trên Server33/BB nếu lần đầu chạy)
+        await EnsureTrackingTableExistsAsync(connection, ct);
+
         using var cmd = new SqlCommand(@"
-            IF OBJECT_ID(N'[BB].[dbo].[bb_Oil_AutoProcessed]', N'U') IS NULL
-                SELECT 0
-            ELSE
-                SELECT COUNT(1)
-                FROM [BB].[dbo].[bb_Oil_AutoProcessed]
-                WHERE [MachineName] = @machineName
-                  AND [GroupLotId] = @groupLotId
-                  AND [PlanId] = @planId", connection);
+            SELECT COUNT(1)
+            FROM [dbo].[bb_Oil_AutoProcessed]
+            WHERE [MachineName] = @machineName
+              AND [GroupLotId] = @groupLotId
+              AND [PlanId] = @planId", connection);
 
         cmd.Parameters.AddWithValue("@machineName", machineName);
         cmd.Parameters.AddWithValue("@groupLotId", groupLotId);
@@ -38,6 +36,30 @@ public class OilLabelService : IOilLabelService
 
         var count = (int)(await cmd.ExecuteScalarAsync(ct) ?? 0);
         return count > 0;
+    }
+
+    /// <summary>
+    /// Tạo bảng [BB].[dbo].[bb_Oil_AutoProcessed] và unique index nếu chưa tồn tại.
+    /// IF NOT EXISTS check rẻ nên có thể gọi mỗi cycle.
+    /// </summary>
+    private static async Task EnsureTrackingTableExistsAsync(SqlConnection connection, CancellationToken ct)
+    {
+        using var cmd = new SqlCommand(@"
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'bb_Oil_AutoProcessed' AND schema_id = SCHEMA_ID('dbo'))
+            BEGIN
+                CREATE TABLE [dbo].[bb_Oil_AutoProcessed](
+                    [Id] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    [MachineName] [varchar](10) NOT NULL,
+                    [GroupLotId] [int] NOT NULL,
+                    [PlanId] [varchar](30) NULL,
+                    [RecipeCode] [varchar](30) NULL,
+                    [InsertedRows] [int] NOT NULL DEFAULT(0),
+                    [ProcessedAt] [datetime] NOT NULL DEFAULT(GETDATE())
+                );
+                CREATE UNIQUE INDEX UQ_Machine_GroupLot_Plan
+                    ON [dbo].[bb_Oil_AutoProcessed]([MachineName], [GroupLotId], [PlanId]);
+            END", connection);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<int> InsertOilLabelsAsync(
@@ -258,23 +280,8 @@ public class OilLabelService : IOilLabelService
         using var connection = new SqlConnection(_server33ConnectionString);
         await connection.OpenAsync(ct);
 
-        // Tạo bảng nếu chưa có
-        using var cmdCreate = new SqlCommand(@"
-            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'bb_Oil_AutoProcessed' AND schema_id = SCHEMA_ID('dbo'))
-            BEGIN
-                CREATE TABLE [dbo].[bb_Oil_AutoProcessed](
-                    [Id] [int] IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                    [MachineName] [varchar](10) NOT NULL,
-                    [GroupLotId] [int] NOT NULL,
-                    [PlanId] [varchar](30) NULL,
-                    [RecipeCode] [varchar](30) NULL,
-                    [InsertedRows] [int] NOT NULL DEFAULT(0),
-                    [ProcessedAt] [datetime] NOT NULL DEFAULT(GETDATE())
-                );
-                CREATE UNIQUE INDEX UQ_Machine_GroupLot_Plan 
-                    ON [dbo].[bb_Oil_AutoProcessed]([MachineName], [GroupLotId], [PlanId]);
-            END", connection);
-        await cmdCreate.ExecuteNonQueryAsync(ct);
+        // Đảm bảo bảng tồn tại
+        await EnsureTrackingTableExistsAsync(connection, ct);
 
         // Insert record
         using var cmdInsert = new SqlCommand(@"
