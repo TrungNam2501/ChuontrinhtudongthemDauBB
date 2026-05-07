@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{51813993-52BE-4C7D-B3E5-E139370B7131}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OilAutoService", "src\OilAutoService\OilAutoService.csproj", "{D86F2019-E275-4471-A98D-48913C973BCF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D86F2019-E275-4471-A98D-48913C973BCF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D86F2019-E275-4471-A98D-48913C973BCF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D86F2019-E275-4471-A98D-48913C973BCF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D86F2019-E275-4471-A98D-48913C973BCF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D86F2019-E275-4471-A98D-48913C973BCF} = {51813993-52BE-4C7D-B3E5-E139370B7131}
+	EndGlobalSection
+EndGlobal
