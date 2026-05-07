@@ -10,8 +10,8 @@ public class PptWeigh
     public string? MaterCode { get; set; }
     public string? EquipCode { get; set; }
     public string? EdtCode { get; set; }
-    public byte? ShiftClass { get; set; }
-    public byte? Shift { get; set; }
+    public string? ShiftClass { get; set; }
+    public string? Shift { get; set; }
     public decimal? SetWeight { get; set; }
     public decimal? RealWeight { get; set; }
     public decimal? ErrorOut { get; set; }
@@ -19,7 +19,7 @@ public class PptWeigh
     public DateTime? WeighTime { get; set; }
     public decimal? ErrorAllow { get; set; }
     public string? UnitName { get; set; }
-    public byte? WeighType { get; set; }
+    public string? WeighType { get; set; }
     public string? Flg { get; set; }
     public string? UserPlanId { get; set; }
 }
