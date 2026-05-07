@@ -219,10 +219,10 @@ public class OilLabelService : IOilLabelService
 
     /// <summary>
     /// Tìm tem dầu khả dụng cho mater_code, FIFO theo ID.
-    /// active là nvarchar với 4 giá trị:
-    ///   - 'trang thai', 'mokhoa' = đang dùng được (cần còn kg)
-    ///   - 'khoa'                 = đã đóng, không dùng nữa
-    ///   - 'boquakhoa'            = user override, vẫn dùng được dù hết kg
+    /// active là nvarchar với 3 giá trị:
+    ///   - 'mokhoa'    = đang mở, dùng được (cần còn kg)
+    ///   - 'khoa'      = đã đóng, không dùng nữa
+    ///   - 'boquakhoa' = user override, vẫn dùng được dù hết kg
     /// </summary>
     private static async Task<BbOilNhaptay?> FindAvailableOilLabelAsync(
         SqlConnection bbConnection,
@@ -238,10 +238,9 @@ public class OilLabelService : IOilLabelService
             SELECT TOP 1 [ID], [HMI_Barcode], [Sokgtem], [sokgsudung]
             FROM [BB].[dbo].[bb_Oil_Nhaptay]
             WHERE LTRIM(RTRIM([HMI_Barcode])) = LTRIM(RTRIM(@materCode))
-              AND LTRIM(RTRIM([active])) <> 'khoa'
               AND (
                     LTRIM(RTRIM([active])) = 'boquakhoa'
-                 OR (LTRIM(RTRIM([active])) IN ('trang thai', 'mokhoa')
+                 OR (LTRIM(RTRIM([active])) = 'mokhoa'
                       AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0)
               )
             ORDER BY [ID] ASC", bbConnection);
