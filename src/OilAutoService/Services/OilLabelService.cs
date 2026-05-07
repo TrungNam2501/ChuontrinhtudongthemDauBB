@@ -257,8 +257,10 @@ public class OilLabelService : IOilLabelService
         {
             Id = reader.GetInt32(0),
             HmiBarcode = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-            Sokgtem = reader.IsDBNull(2) ? 0 : reader.GetDecimal(2),
-            Sokgsudung = reader.IsDBNull(3) ? 0 : reader.GetDecimal(3)
+            // Sokgtem/sokgsudung trên DB có thể là float (System.Double) chứ không phải decimal,
+            // dùng Convert.ToDecimal để chấp nhận cả float/decimal/numeric/int.
+            Sokgtem = reader.IsDBNull(2) ? 0m : Convert.ToDecimal(reader.GetValue(2)),
+            Sokgsudung = reader.IsDBNull(3) ? 0m : Convert.ToDecimal(reader.GetValue(3))
         };
     }
 
