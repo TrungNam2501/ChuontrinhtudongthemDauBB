@@ -52,6 +52,7 @@ public class OilLabelService : IOilLabelService
                     [MachineName] [varchar](10) NOT NULL,
                     [GroupLotId] [int] NOT NULL,
                     [PlanId] [varchar](30) NULL,
+                    [MesPlanId] [varchar](30) NULL,
                     [RecipeCode] [varchar](30) NULL,
                     [InsertedRows] [int] NOT NULL DEFAULT(0),
                     [ProcessedAt] [datetime] NOT NULL DEFAULT(GETDATE())
@@ -71,7 +72,8 @@ public class OilLabelService : IOilLabelService
     {
         if (weighData.Count == 0)
         {
-            _logger.LogWarning("Không có dữ liệu cân dầu cho PlanId={PlanId}", order.PlanId);
+            _logger.LogWarning("Không có dữ liệu cân dầu cho PlanId={PlanId}, MesPlanId={MesPlanId}",
+                order.PlanId, order.MesPlanId);
             return 0;
         }
 
@@ -107,8 +109,8 @@ public class OilLabelService : IOilLabelService
             var exists = (int)(await cmdCheck.ExecuteScalarAsync(ct) ?? 0);
             if (exists > 0)
             {
-                _logger.LogDebug("Tem dầu đã tồn tại: PlanId={PlanId}, Barcode={Barcode}, MaterType={MaterType}",
-                    order.PlanId, weigh.Barcode, weigh.WeightId);
+                _logger.LogDebug("Tem dầu đã tồn tại: PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}, MaterType={MaterType}",
+                    order.PlanId, order.MesPlanId, weigh.Barcode, weigh.WeightId);
                 continue;
             }
 
@@ -117,9 +119,9 @@ public class OilLabelService : IOilLabelService
             if (label is null)
             {
                 _logger.LogWarning(
-                    "Không tìm thấy tem dầu khả dụng cho MaterCode={MaterCode}, PlanId={PlanId}, Barcode={Barcode}. " +
+                    "Không tìm thấy tem dầu khả dụng cho MaterCode={MaterCode}, PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}. " +
                     "Vẫn insert Ppt_BarCodeRep với Mater_Barcode rỗng để ghi nhận.",
-                    weigh.MaterCode, order.PlanId, weigh.Barcode);
+                    weigh.MaterCode, order.PlanId, order.MesPlanId, weigh.Barcode);
             }
 
             // Parse Equip_ID từ equip_code (vd "03" -> 3)
@@ -131,8 +133,8 @@ public class OilLabelService : IOilLabelService
             }
             else
             {
-                _logger.LogWarning("Không parse được Equip_ID từ equip_code='{Equip}' (PlanId={PlanId})",
-                    weigh.EquipCode, order.PlanId);
+                _logger.LogWarning("Không parse được Equip_ID từ equip_code='{Equip}' (PlanId={PlanId}, MesPlanId={MesPlanId})",
+                    weigh.EquipCode, order.PlanId, order.MesPlanId);
             }
 
             // Parse Serial_Num từ 3 ký tự cuối barcode (vd "...001" -> 1, "...012" -> 12)
@@ -176,14 +178,14 @@ public class OilLabelService : IOilLabelService
                 await UpdateSokgsudungAsync(bbConnection, label.Id, weigh.RealWeight.Value, ct);
 
                 _logger.LogInformation(
-                    "Insert tem dầu PlanId={PlanId}, Barcode={Barcode}, MaterCode={MaterCode}, " +
+                    "Insert tem dầu PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}, MaterCode={MaterCode}, " +
                     "RealWeight={RealWeight}, MaterBarcode(HMI)={Hmi}, LabelId={LabelId}",
-                    order.PlanId, weigh.Barcode, materCode, weigh.RealWeight, label.HmiBarcode, label.Id);
+                    order.PlanId, order.MesPlanId, weigh.Barcode, materCode, weigh.RealWeight, label.HmiBarcode, label.Id);
             }
         }
 
-        _logger.LogInformation("Đã insert {Count} tem dầu cho PlanId={PlanId}, RecipeCode={RecipeCode}",
-            insertedCount, order.PlanId, order.RecipeCode);
+        _logger.LogInformation("Đã insert {Count} tem dầu cho PlanId={PlanId}, MesPlanId={MesPlanId}, RecipeCode={RecipeCode}",
+            insertedCount, order.PlanId, order.MesPlanId, order.RecipeCode);
 
         return insertedCount;
     }
@@ -292,7 +294,7 @@ public class OilLabelService : IOilLabelService
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? recipeCode, int insertedRows, CancellationToken ct)
+    public async Task MarkOrderProcessedAsync(string machineName, int groupLotId, string? planId, string? mesPlanId, string? recipeCode, int insertedRows, CancellationToken ct)
     {
         using var connection = new SqlConnection(_server33ConnectionString);
         await connection.OpenAsync(ct);
@@ -300,7 +302,9 @@ public class OilLabelService : IOilLabelService
         // Đảm bảo bảng tồn tại
         await EnsureTrackingTableExistsAsync(connection, ct);
 
-        // Insert record
+        // Insert record. Cột [MesPlanId] có thể chưa tồn tại trên DB cũ; nếu thiếu
+        // thì user phải chạy ALTER TABLE bb_Oil_AutoProcessed ADD [MesPlanId] varchar(30) NULL
+        // (xem README/PR description).
         using var cmdInsert = new SqlCommand(@"
             IF NOT EXISTS (
                 SELECT 1 FROM [dbo].[bb_Oil_AutoProcessed]
@@ -308,14 +312,15 @@ public class OilLabelService : IOilLabelService
             )
             BEGIN
                 INSERT INTO [dbo].[bb_Oil_AutoProcessed]
-                    ([MachineName], [GroupLotId], [PlanId], [RecipeCode], [InsertedRows])
+                    ([MachineName], [GroupLotId], [PlanId], [MesPlanId], [RecipeCode], [InsertedRows])
                 VALUES
-                    (@machineName, @groupLotId, @planId, @recipeCode, @insertedRows)
+                    (@machineName, @groupLotId, @planId, @mesPlanId, @recipeCode, @insertedRows)
             END", connection);
 
         cmdInsert.Parameters.AddWithValue("@machineName", machineName);
         cmdInsert.Parameters.AddWithValue("@groupLotId", groupLotId);
         cmdInsert.Parameters.AddWithValue("@planId", (object?)planId ?? DBNull.Value);
+        cmdInsert.Parameters.AddWithValue("@mesPlanId", (object?)mesPlanId ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@recipeCode", (object?)recipeCode ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@insertedRows", insertedRows);
 
