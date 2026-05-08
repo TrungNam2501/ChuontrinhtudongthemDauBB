@@ -3,10 +3,13 @@ using OilAutoService.Configuration;
 using OilAutoService.Services;
 using Serilog;
 
+var exeDir = Path.GetDirectoryName(AppContext.BaseDirectory) ?? AppContext.BaseDirectory;
+var logPath = Path.Combine(exeDir, "logs", "oil-auto-service-.log");
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .WriteTo.Console()
-    .WriteTo.File("logs/oil-auto-service-.log",
+    .WriteTo.File(logPath,
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30)
     .CreateLogger();
