@@ -246,7 +246,7 @@ public class OilLabelService : IOilLabelService
                  OR (LTRIM(RTRIM([active])) = 'mokhoa'
                       AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0)
               )
-            ORDER BY [ID] ASC", bbConnection);
+            ORDER BY [Indat] ASC, [ID] ASC", bbConnection);
 
         cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
 
