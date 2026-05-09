@@ -273,21 +273,50 @@ public class OilLabelService : IOilLabelService
     /// 'boquakhoa' thì tự động set active = 'khoa'. Nếu là 'boquakhoa' (user
     /// override) thì giữ nguyên - không tự đổi về 'khoa'.
     /// </summary>
+    //private static async Task UpdateSokgsudungAsync(
+    //    SqlConnection bbConnection,
+    //    int labelId,
+    //    decimal realWeight,
+    //    CancellationToken ct)
+    //{
+    //    using var cmd = new SqlCommand(@"
+    //        UPDATE [BB].[dbo].[bb_Oil_Nhaptay]
+    //        SET [sokgsudung] = ISNULL([sokgsudung], 0) + @realWeight,
+    //            [active] = CASE
+    //                WHEN LTRIM(RTRIM([active])) = 'boquakhoa' THEN [active]
+    //                WHEN (ISNULL([sokgsudung], 0) + @realWeight) >= ISNULL([Sokgtem], 0) THEN 'khoa'
+    //                ELSE [active]
+    //            END
+    //        WHERE [ID] = @id", bbConnection);
+
+    //    cmd.Parameters.AddWithValue("@realWeight", realWeight);
+    //    cmd.Parameters.AddWithValue("@id", labelId);
+
+    //    await cmd.ExecuteNonQueryAsync(ct);
+    //}
     private static async Task UpdateSokgsudungAsync(
-        SqlConnection bbConnection,
-        int labelId,
-        decimal realWeight,
-        CancellationToken ct)
+    SqlConnection bbConnection,
+    int labelId,
+    decimal realWeight,
+    CancellationToken ct)
     {
         using var cmd = new SqlCommand(@"
-            UPDATE [BB].[dbo].[bb_Oil_Nhaptay]
-            SET [sokgsudung] = ISNULL([sokgsudung], 0) + @realWeight,
-                [active] = CASE
-                    WHEN LTRIM(RTRIM([active])) = 'boquakhoa' THEN [active]
-                    WHEN (ISNULL([sokgsudung], 0) + @realWeight) >= ISNULL([Sokgtem], 0) THEN 'khoa'
-                    ELSE [active]
-                END
-            WHERE [ID] = @id", bbConnection);
+        UPDATE [BB].[dbo].[bb_Oil_Nhaptay]
+        SET [sokgsudung] = ISNULL([sokgsudung], 0) + @realWeight,
+            [active] = CASE
+                WHEN LTRIM(RTRIM([active])) = 'boquakhoa' THEN [active]
+                WHEN (ISNULL([sokgsudung], 0) + @realWeight) >= ISNULL([Sokgtem], 0) THEN 'khoa'
+                ELSE [active]
+            END
+        WHERE [ID] = @id;
+
+        INSERT INTO [BB].[dbo].[bb_Oil_Sudung_Log]
+            ([NhaptayID], [Barcode_left_7bit], [RealWeight], [Sudungdat], [Sudungtime])
+        SELECT @id, [Barcode_left_7bit], @realWeight,
+               CONVERT(varchar(8), GETDATE(), 112),
+               CONVERT(varchar(8), GETDATE(), 108)
+        FROM [BB].[dbo].[bb_Oil_Nhaptay]
+        WHERE [ID] = @id;", bbConnection);
 
         cmd.Parameters.AddWithValue("@realWeight", realWeight);
         cmd.Parameters.AddWithValue("@id", labelId);
