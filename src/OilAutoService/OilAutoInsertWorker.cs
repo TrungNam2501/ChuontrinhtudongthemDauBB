@@ -125,7 +125,7 @@ public class OilAutoInsertWorker : BackgroundService
 
                 // 5. INSERT tem dầu vào Ppt_BarCodeRep
                 var insertedRows = await labelService.InsertOilLabelsAsync(
-                    machine.ConnectionString, order, oilMaterials, weighData, ct);
+                    machine.Name, machine.ConnectionString, order, oilMaterials, weighData, ct);
 
                 // 6. Đánh dấu đã xử lý
                 await labelService.MarkOrderProcessedAsync(machine.Name, order.Id, order.PlanId, order.MesPlanId, order.RecipeCode, order.EndDatetime, insertedRows, ct);
