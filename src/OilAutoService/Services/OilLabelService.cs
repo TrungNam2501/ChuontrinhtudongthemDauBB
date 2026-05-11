@@ -65,6 +65,7 @@ public class OilLabelService : IOilLabelService
     }
 
     public async Task<int> InsertOilLabelsAsync(
+        string machineName,
         string machineConnectionString,
         PptGroupLot order,
         List<PmtWeigh> oilMaterials,
@@ -179,9 +180,9 @@ public class OilLabelService : IOilLabelService
                 await UpdateSokgsudungAsync(bbConnection, label.Id, weigh.RealWeight.Value, ct);
 
                 _logger.LogInformation(
-                    "Insert tem dầu PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}, MaterCode={MaterCode}, " +
+                    "[{MachineName}] Insert tem dầu PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}, MaterCode={MaterCode}, " +
                     "RealWeight={RealWeight}, MaterBarcode(HMI)={Hmi}, LabelId={LabelId}",
-                    order.PlanId, order.MesPlanId, weigh.Barcode, materCode, weigh.RealWeight, label.HmiBarcode, label.Id);
+                    machineName, order.PlanId, order.MesPlanId, weigh.Barcode, materCode, weigh.RealWeight, label.HmiBarcode, label.Id);
             }
         }
 

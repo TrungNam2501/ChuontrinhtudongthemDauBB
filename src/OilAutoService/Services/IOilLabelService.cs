@@ -13,6 +13,7 @@ public interface IOilLabelService
     /// Insert tem dầu vào bảng Ppt_BarCodeRep trên máy
     /// </summary>
     Task<int> InsertOilLabelsAsync(
+        string machineName,
         string machineConnectionString,
         PptGroupLot order,
         List<PmtWeigh> oilMaterials,
