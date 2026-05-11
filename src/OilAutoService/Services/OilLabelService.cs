@@ -177,7 +177,7 @@ public class OilLabelService : IOilLabelService
             // Sau khi insert -> update sokgsudung trên bb_Oil_Nhaptay
             if (label is not null && weigh.RealWeight.HasValue)
             {
-                await UpdateSokgsudungAsync(bbConnection, label.Id, weigh.RealWeight.Value, ct);
+                await UpdateSokgsudungAsync(bbConnection, label.Id, weigh.RealWeight.Value, machineName, order.MesPlanId, ct);
 
                 _logger.LogInformation(
                     "[{MachineName}] Insert tem dầu PlanId={PlanId}, MesPlanId={MesPlanId}, Barcode={Barcode}, MaterCode={MaterCode}, " +
@@ -299,6 +299,8 @@ public class OilLabelService : IOilLabelService
     SqlConnection bbConnection,
     int labelId,
     decimal realWeight,
+    string machineName,
+    string? mesPlanId,
     CancellationToken ct)
     {
         using var cmd = new SqlCommand(@"
@@ -312,15 +314,18 @@ public class OilLabelService : IOilLabelService
         WHERE [ID] = @id;
 
         INSERT INTO [BB].[dbo].[bb_Oil_Sudung_Log]
-            ([NhaptayID], [Barcode_left_7bit], [RealWeight], [Sudungdat], [Sudungtime])
+            ([NhaptayID], [Barcode_left_7bit], [RealWeight], [Sudungdat], [Sudungtime], [MachineName], [MesPlanId])
         SELECT @id, [Barcode_left_7bit], @realWeight,
                CONVERT(varchar(8), GETDATE(), 112),
-               CONVERT(varchar(8), GETDATE(), 108)
+               CONVERT(varchar(8), GETDATE(), 108),
+               @machineName, @mesPlanId
         FROM [BB].[dbo].[bb_Oil_Nhaptay]
         WHERE [ID] = @id;", bbConnection);
 
         cmd.Parameters.AddWithValue("@realWeight", realWeight);
         cmd.Parameters.AddWithValue("@id", labelId);
+        cmd.Parameters.AddWithValue("@machineName", machineName);
+        cmd.Parameters.AddWithValue("@mesPlanId", (object?)mesPlanId ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
