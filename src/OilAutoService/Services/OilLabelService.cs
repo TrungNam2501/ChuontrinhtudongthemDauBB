@@ -238,16 +238,43 @@ public class OilLabelService : IOilLabelService
             return null;
         }
 
+        //using var cmd = new SqlCommand(@"
+        //    SELECT TOP 1 [ID], [HMI_Barcode], [Sokgtem], [sokgsudung]
+        //    FROM [BB].[dbo].[bb_Oil_Nhaptay]
+        //    WHERE LTRIM(RTRIM([Barcode_left_7bit])) = LTRIM(RTRIM(@materCode))
+        //      AND (
+        //            LTRIM(RTRIM([active])) = 'boquakhoa'
+        //         OR (LTRIM(RTRIM([active])) = 'mokhoa'
+        //              AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0)
+        //      )
+        //    ORDER BY [Indat] ASC, [ID] ASC", bbConnection);
+
         using var cmd = new SqlCommand(@"
-            SELECT TOP 1 [ID], [HMI_Barcode], [Sokgtem], [sokgsudung]
-            FROM [BB].[dbo].[bb_Oil_Nhaptay]
-            WHERE LTRIM(RTRIM([Barcode_left_7bit])) = LTRIM(RTRIM(@materCode))
-              AND (
-                    LTRIM(RTRIM([active])) = 'boquakhoa'
-                 OR (LTRIM(RTRIM([active])) = 'mokhoa'
-                      AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0)
-              )
-            ORDER BY [Indat] ASC, [ID] ASC", bbConnection);
+                SELECT TOP 1 
+                    [ID],
+                    [HMI_Barcode],
+                    [Sokgtem],
+                    [sokgsudung]
+                FROM [BB].[dbo].[bb_Oil_Nhaptay]
+                WHERE LTRIM(RTRIM([Barcode_left_7bit])) = LTRIM(RTRIM(@materCode))
+                  AND (
+                        LTRIM(RTRIM([active])) = 'boquakhoa'
+                     OR (
+                            LTRIM(RTRIM([active])) = 'mokhoa'
+                        AND (ISNULL([Sokgtem], 0) - ISNULL([sokgsudung], 0)) > 0
+                        )
+                      )
+                ORDER BY 
+                    TRY_CONVERT(
+                        date,
+                        '20' + SUBSTRING([HMI_Barcode], 8, 2) + '-' +
+                               SUBSTRING([HMI_Barcode], 10, 2) + '-' +
+                               SUBSTRING([HMI_Barcode], 12, 2)
+                    ) ASC,
+                    [ID] ASC
+            ", bbConnection);
+
+        cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
 
         cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
 
