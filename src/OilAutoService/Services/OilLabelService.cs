@@ -276,8 +276,6 @@ public class OilLabelService : IOilLabelService
 
         cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
 
-        cmd.Parameters.AddWithValue("@materCode", materCode.Trim());
-
         using var reader = await cmd.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))
         {
